@@ -3,10 +3,18 @@ import math as mth
 import bs4 as bsoup
 import urllib.request
 import nflReference as NFL
-import html5lib
 import lxml
 from datetime import datetime
 import scraper as Scraper
+
+
+BASE_URL="https://www.pro-football-reference.com"
+
+def bsoupRequest(url):
+	req = urllib.request.Request(url)
+	response = urllib.request.urlopen(req)
+	rawHtml = response.read()
+	return bsoup.BeautifulSoup(rawHtml, 'lxml')
 
 def getDate(str):
 	#Format =: September 9th, 2019
@@ -19,34 +27,49 @@ def getDate(str):
 	dtime_obj = datetime.strptime(date, '%B %d %Y')
 	return dtime_obj.strftime('%d_%m_%Y')
 
-def scrapeTeamnames(url):
-	print("lala")
-	#req = urllib.request.Request(url)
-	#response = urllib.request.urlopen(req)
-	#rawHtml = response.read()
-	#soup = bsoup.BeautifulSoup(rawHtml, 'lxml')
-	#print(soup.find_all(id="csv_rushing_advanced"))
+def getGameInfos(url):
+	soup = bsoupRequest(url)
 
 	##Basic infos
-	#title=soup.title.text
-	#foo = title.split(' at ');
-	#visitor=foo[0].strip()
-	#home=foo[1].split('-')[0].strip()
-	#date = getDate(foo[1].split('-')[1].split('|')[0].strip())
+	title=soup.title.text
+	foo = title.split(' at ');
+	visitor=foo[0].strip()
+	home=foo[1].split('-')[0].strip()
+	print(f'visitor: {visitor}, home: {home}')
+	date = getDate(foo[1].split('-')[1].split('|')[0].strip())
+	return (NFL.getAcronym(home),NFL.getAcronym(visitor),date)
 
-	##Receiving_csv
-	#receivingDiv = soup.find("div", id="all_receiving_advanced")
-	#print(receivingDiv)
-	#foo=receivingDiv.find("div",class_="section_heading_text")
-	#foo=foo.find("ul")
-	#print(soup.find_all(class_="hasmore"))
+def scrapeGame(url):
+	#Receiving Data
+	try:
+		receivingCSV=Scraper.scrape(url)
+	except Exception as inst:
+		f=open("logs/"+str(datetime.now()),"a+")
+		f.write(f"{url}:{inst}")
+		f.close()
 
+	#basic Game data
+	else:	
+		infos=getGameInfos(url)
+		print(infos)
+		filename=infos[0]+"-"+infos[1]+"-"+infos[2]
 
-def scrape(url):
-	print (Scraper.scrape(url))
+		f=open("data/"+filename,"w+")
+		f.write(receivingCSV)
+		f.close()
 
 def main(year):
-	scrape('https://www.pro-football-reference.com/boxscores/201909080nwe.htm')
+	year_url = BASE_URL + "/years/" + str(year)
+	for i in range(1,17): #weeks 1-17
+		week_url = year_url + "/" + "week_" + str(i) + ".htm" 
+		print(week_url)
+		soup = bsoupRequest(week_url)
+		gameLinks=soup.find_all("td",class_="right gamelink")
+		for link in gameLinks:
+			url=link.a['href']
+			if url is not None:
+				scrapeGame(BASE_URL + link.a['href'])
+
 
 if __name__ == "__main__":
-    main(1111)
+    main(2019)
