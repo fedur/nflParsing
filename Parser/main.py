@@ -6,6 +6,7 @@ import nflReference as NFL
 import lxml
 from datetime import datetime
 import scraper as Scraper
+from pathlib import Path
 
 
 BASE_URL="https://www.pro-football-reference.com"
@@ -39,27 +40,28 @@ def getGameInfos(url):
 	date = getDate(foo[1].split('-')[1].split('|')[0].strip())
 	return (NFL.getAcronym(home),NFL.getAcronym(visitor),date)
 
-def scrapeGame(url):
+def scrapeGame(url, dataDir):
 	#Receiving Data
+
 	try:
+		infos=getGameInfos(url)
+		filename=infos[0]+"-"+infos[1]+"-"+infos[2]
 		receivingCSV=Scraper.scrape(url)
 	except Exception as inst:
-		f=open("logs/"+str(datetime.now()),"a+")
-		f.write(f"{url}:{inst}")
+		f=open(dataDir + "/errors.log","w+")
+		f.write(url)
 		f.close()
 
 	#basic Game data
 	else:	
-		infos=getGameInfos(url)
-		print(infos)
-		filename=infos[0]+"-"+infos[1]+"-"+infos[2]
-
-		f=open("data/"+filename,"w+")
+		f=open(dataDir+filename,"w+")
 		f.write(receivingCSV)
 		f.close()
 
 def main(year):
 	year_url = BASE_URL + "/years/" + str(year)
+	dataDir="../data/" + str(datetime.now()) + "/"
+	Path(dataDir).mkdir(parents=True, exist_ok=True)
 	for i in range(1,17): #weeks 1-17
 		week_url = year_url + "/" + "week_" + str(i) + ".htm" 
 		print(week_url)
@@ -68,7 +70,7 @@ def main(year):
 		for link in gameLinks:
 			url=link.a['href']
 			if url is not None:
-				scrapeGame(BASE_URL + link.a['href'])
+				scrapeGame(BASE_URL + link.a['href'], dataDir)
 
 
 if __name__ == "__main__":
